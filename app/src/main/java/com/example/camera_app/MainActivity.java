@@ -5,7 +5,10 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 
 import android.Manifest;
+import android.content.ActivityNotFoundException;
+import android.content.ComponentName;
 import android.content.Context;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.SurfaceTexture;
 import android.hardware.Camera;
@@ -99,6 +102,27 @@ public class MainActivity extends AppCompatActivity {
             e.printStackTrace();
         }
 
+        galleryPreview.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                openCustomGallery();
+            }
+        });
+
+    }
+    private void openCustomGallery() {
+        Intent intent = new Intent(Intent.ACTION_MAIN);
+        intent.setComponent(new ComponentName("com.example.gallery_application", "com.example.gallery_application.MainActivity")); // Replace with your gallery app's package name and main activity
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+
+        try {
+            startActivity(intent);
+        } catch (ActivityNotFoundException e) {
+            // Handle the case where the gallery app is not installed or accessible
+            // You can open the Play Store to prompt the user to install the app
+            Toast.makeText(this, "Gallery app not installed", Toast.LENGTH_SHORT).show();
+            e.printStackTrace();
+        }
     }
 
 //    private void openCamera() {
