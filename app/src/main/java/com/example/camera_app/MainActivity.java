@@ -17,9 +17,13 @@ import android.hardware.camera2.CameraCaptureSession;
 import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CameraDevice;
 import android.hardware.camera2.CameraManager;
+import android.hardware.camera2.CameraMetadata;
 import android.hardware.camera2.CaptureRequest;
+import android.hardware.camera2.TotalCaptureResult;
+import android.media.ImageReader;
 import android.os.Bundle;
 import android.util.Log;
+import android.util.SparseIntArray;
 import android.view.Surface;
 import android.view.TextureView;
 import android.view.View;
@@ -37,9 +41,17 @@ public class MainActivity extends AppCompatActivity {
 
     private final int REQUEST_CAMERA_PERMISSION = 1;
     private TextureView textureView;
-
+    private CameraCaptureSession cameraCaptureSession;
+    private ImageReader imageReader;
+    private static final SparseIntArray ORIENTATIONS = new SparseIntArray();
+    static {
+        ORIENTATIONS.append(Surface.ROTATION_0, 90);
+        ORIENTATIONS.append(Surface.ROTATION_90, 0);
+        ORIENTATIONS.append(Surface.ROTATION_180, 270);
+        ORIENTATIONS.append(Surface.ROTATION_270, 180);
+    }
     private ImageView galleryPreview;
-    private Button cameraRotate;
+    private Button cameraRotate,captureButton;
     private String currentCameraId;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -47,7 +59,7 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
 
         textureView = findViewById(R.id.texture_view);
-        Button captureButton = findViewById(R.id.captureBtn);
+        captureButton = findViewById(R.id.captureBtn);
         cameraRotate = findViewById(R.id.cameraRotate);
         galleryPreview = findViewById(R.id.galleryPreview);
 
@@ -71,12 +83,7 @@ public class MainActivity extends AppCompatActivity {
         } catch (CameraAccessException e) {
             e.printStackTrace();
         }
-        captureButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
 
-            }
-        });
         cameraRotate.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -125,86 +132,34 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-//    private void openCamera() {
-//        try {
-//            if (ActivityCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
-//                ActivityCompat.requestPermissions(this,new String[]{Manifest.permission.CAMERA},REQUEST_CAMERA_PERMISSION);
-//                return;
-//            }
-//            cameraManager.openCamera(cameraId, new CameraDevice.StateCallback() {
-//                @Override
-//                public void onOpened(@NonNull CameraDevice camera) {
-//                    // Camera opened, you can start camera operations here
-//                    createCameraPreviewSession(camera);
-//
-//                }
-//
-//                @Override
-//                public void onDisconnected(@NonNull CameraDevice camera) {
-//                    // Handle camera disconnect
-//                }
-//
-//                @Override
-//                public void onError(@NonNull CameraDevice camera, int error) {
-//                    // Handle camera errors
-//                }
-//            }, null);
-//        } catch (CameraAccessException e) {
-//            e.printStackTrace();
-//        }
-//    }
-private void openCamera() {
-    try {
-        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.CAMERA}, REQUEST_CAMERA_PERMISSION);
-            return;
-        }
-
-        if (cameraManager != null) {
-            String[] cameraIds = cameraManager.getCameraIdList();
-            boolean cameraFound = false;
-
-            for (String id : cameraIds) {
-                CameraCharacteristics characteristics = cameraManager.getCameraCharacteristics(id);
-                Integer facing = characteristics.get(CameraCharacteristics.LENS_FACING);
-
-                if (facing != null && facing == CameraCharacteristics.LENS_FACING_BACK) {
-                    cameraId = id; // Set the rear camera ID (or the camera you want to use)
-                    cameraFound = true;
-                    break;
-                }
-            }
-
-            if (!cameraFound) {
-                // Rear camera not found or unavailable
-                // Handle this scenario (show an error message or take appropriate action)
+    private void openCamera() {
+        try {
+            if (ActivityCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+                ActivityCompat.requestPermissions(this,new String[]{Manifest.permission.CAMERA},REQUEST_CAMERA_PERMISSION);
                 return;
             }
-
             cameraManager.openCamera(cameraId, new CameraDevice.StateCallback() {
                 @Override
                 public void onOpened(@NonNull CameraDevice camera) {
+                    // Camera opened, you can start camera operations here
                     createCameraPreviewSession(camera);
                 }
 
                 @Override
                 public void onDisconnected(@NonNull CameraDevice camera) {
-
+                    // Handle camera disconnect
                 }
 
                 @Override
                 public void onError(@NonNull CameraDevice camera, int error) {
-
+                    // Handle camera errors
                 }
-                // Rest of the camera open logic remains unchanged...
-                // ...
             }, null);
+        } catch (CameraAccessException e) {
+            e.printStackTrace();
         }
-    } catch (CameraAccessException e) {
-        e.printStackTrace();
-        // Handle the CameraAccessException (e.g., show error message to the user)
     }
-}
+
     private void createCameraPreviewSession(CameraDevice cameraDevice) {
         try {
             SurfaceTexture texture = textureView.getSurfaceTexture();
@@ -240,6 +195,19 @@ private void openCamera() {
                             // Handle configuration failure
                         }
                     }, null);
+            captureButton.setOnClickListener(v -> {
+                try {
+                    CaptureRequest.Builder captureBuilder = cameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_STILL_CAPTURE);
+                    captureBuilder.addTarget(imageReader.getSurface());
+
+                    // Capture the image
+                    cameraCaptureSession.capture(captureBuilder.build(), null, null);
+                }catch (CameraAccessException e){
+                    e.printStackTrace();
+                }
+
+
+            });
         } catch (CameraAccessException e) {
             e.printStackTrace();
         }
@@ -297,3 +265,55 @@ private void openCamera() {
         }
     }
 }
+//private void openCamera() {
+//    try {
+//        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+//            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.CAMERA}, REQUEST_CAMERA_PERMISSION);
+//            return;
+//        }
+//
+//        if (cameraManager != null) {
+//            String[] cameraIds = cameraManager.getCameraIdList();
+//            boolean cameraFound = false;
+//
+//            for (String id : cameraIds) {
+//                CameraCharacteristics characteristics = cameraManager.getCameraCharacteristics(id);
+//                Integer facing = characteristics.get(CameraCharacteristics.LENS_FACING);
+//
+//                if (facing != null && facing == CameraCharacteristics.LENS_FACING_BACK) {
+//                    cameraId = id; // Set the rear camera ID (or the camera you want to use)
+//                    cameraFound = true;
+//                    break;
+//                }
+//            }
+//
+//            if (!cameraFound) {
+//                // Rear camera not found or unavailable
+//                // Handle this scenario (show an error message or take appropriate action)
+//                return;
+//            }
+//
+//            cameraManager.openCamera(cameraId, new CameraDevice.StateCallback() {
+//                @Override
+//                public void onOpened(@NonNull CameraDevice camera) {
+//                    createCameraPreviewSession(camera);
+//                }
+//
+//                @Override
+//                public void onDisconnected(@NonNull CameraDevice camera) {
+//
+//                }
+//
+//                @Override
+//                public void onError(@NonNull CameraDevice camera, int error) {
+//
+//                }
+//                // Rest of the camera open logic remains unchanged...
+//                // ...
+//            }, null);
+//        }
+//    } catch (CameraAccessException e) {
+//        e.printStackTrace();
+//        // Handle the CameraAccessException (e.g., show error message to the user)
+//    }
+//}
