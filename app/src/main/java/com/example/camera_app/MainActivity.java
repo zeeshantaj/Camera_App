@@ -10,6 +10,7 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.graphics.ImageFormat;
 import android.graphics.SurfaceTexture;
 import android.hardware.Camera;
 import android.hardware.camera2.CameraAccessException;
@@ -20,6 +21,7 @@ import android.hardware.camera2.CameraManager;
 import android.hardware.camera2.CameraMetadata;
 import android.hardware.camera2.CaptureRequest;
 import android.hardware.camera2.TotalCaptureResult;
+import android.media.Image;
 import android.media.ImageReader;
 import android.os.Bundle;
 import android.util.Log;
@@ -66,6 +68,18 @@ public class MainActivity extends AppCompatActivity {
 
 
         cameraManager = (CameraManager) getSystemService(Context.CAMERA_SERVICE);
+        imageReader = ImageReader.newInstance(
+                1080, 720, ImageFormat.JPEG, 1);
+        imageReader.setOnImageAvailableListener(
+                reader -> {
+                    // Process the captured image here
+                    Image image = reader.acquireLatestImage();
+                    // Process the image
+
+                    image.close();
+                },
+                null
+        );
 
         try {
             String[] cameraIds = cameraManager.getCameraIdList();
@@ -143,6 +157,7 @@ public class MainActivity extends AppCompatActivity {
                 public void onOpened(@NonNull CameraDevice camera) {
                     // Camera opened, you can start camera operations here
                     createCameraPreviewSession(camera);
+                    imageReader = ImageReader.newInstance(1080, 720, ImageFormat.JPEG, 1);
                 }
 
                 @Override
@@ -172,6 +187,10 @@ public class MainActivity extends AppCompatActivity {
             CaptureRequest.Builder previewRequestBuilder = cameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
             previewRequestBuilder.addTarget(surface);
 
+            CaptureRequest.Builder captureBuilder = cameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_STILL_CAPTURE);
+            captureBuilder.addTarget(imageReader.getSurface());
+
+
             // Create a capture session
             cameraDevice.createCaptureSession(Collections.singletonList(surface),
                     new CameraCaptureSession.StateCallback() {
@@ -183,8 +202,18 @@ public class MainActivity extends AppCompatActivity {
                             }
 
                             try {
-                                // Set the preview request
                                 session.setRepeatingRequest(previewRequestBuilder.build(), null, null);
+                                MainActivity.this.cameraCaptureSession = session;
+
+                                captureButton.setOnClickListener(v -> {
+                                    try {
+                                        session.capture(captureBuilder.build(), null, null);
+                                        cameraCaptureSession.capture(captureBuilder.build(), captureCallback, null);
+                                    } catch (CameraAccessException e) {
+                                        e.printStackTrace();
+                                    }
+                                });
+
                             } catch (CameraAccessException e) {
                                 e.printStackTrace();
                             }
@@ -195,19 +224,6 @@ public class MainActivity extends AppCompatActivity {
                             // Handle configuration failure
                         }
                     }, null);
-            captureButton.setOnClickListener(v -> {
-                try {
-                    CaptureRequest.Builder captureBuilder = cameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_STILL_CAPTURE);
-                    captureBuilder.addTarget(imageReader.getSurface());
-
-                    // Capture the image
-                    cameraCaptureSession.capture(captureBuilder.build(), null, null);
-                }catch (CameraAccessException e){
-                    e.printStackTrace();
-                }
-
-
-            });
         } catch (CameraAccessException e) {
             e.printStackTrace();
         }
