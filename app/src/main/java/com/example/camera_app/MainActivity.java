@@ -19,7 +19,9 @@ import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CameraDevice;
 import android.hardware.camera2.CameraManager;
 import android.hardware.camera2.CameraMetadata;
+import android.hardware.camera2.CaptureFailure;
 import android.hardware.camera2.CaptureRequest;
+import android.hardware.camera2.CaptureResult;
 import android.hardware.camera2.TotalCaptureResult;
 import android.media.Image;
 import android.media.ImageReader;
@@ -45,6 +47,7 @@ public class MainActivity extends AppCompatActivity {
     private TextureView textureView;
     private CameraCaptureSession cameraCaptureSession;
     private ImageReader imageReader;
+    private CameraCaptureSession.CaptureCallback captureCallback;
     private static final SparseIntArray ORIENTATIONS = new SparseIntArray();
     static {
         ORIENTATIONS.append(Surface.ROTATION_0, 90);
@@ -65,6 +68,23 @@ public class MainActivity extends AppCompatActivity {
         cameraRotate = findViewById(R.id.cameraRotate);
         galleryPreview = findViewById(R.id.galleryPreview);
 
+        captureCallback = new CameraCaptureSession.CaptureCallback() {
+            @Override
+            public void onCaptureProgressed(@NonNull CameraCaptureSession session, @NonNull CaptureRequest request, @NonNull CaptureResult partialResult) {
+                super.onCaptureProgressed(session, request, partialResult);
+            }
+
+            @Override
+            public void onCaptureCompleted(@NonNull CameraCaptureSession session, @NonNull CaptureRequest request, @NonNull TotalCaptureResult result) {
+                super.onCaptureCompleted(session, request, result);
+                Log.e("MyApp","completed;");
+            }
+
+            @Override
+            public void onCaptureFailed(@NonNull CameraCaptureSession session, @NonNull CaptureRequest request, @NonNull CaptureFailure failure) {
+                super.onCaptureFailed(session, request, failure);
+            }
+        };
 
 
         cameraManager = (CameraManager) getSystemService(Context.CAMERA_SERVICE);
@@ -207,8 +227,9 @@ public class MainActivity extends AppCompatActivity {
 
                                 captureButton.setOnClickListener(v -> {
                                     try {
-                                        session.capture(captureBuilder.build(), null, null);
                                         cameraCaptureSession.capture(captureBuilder.build(), captureCallback, null);
+                                        session.capture(captureBuilder.build(), null, null);
+
                                     } catch (CameraAccessException e) {
                                         e.printStackTrace();
                                     }
